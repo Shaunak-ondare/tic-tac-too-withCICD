@@ -1,0 +1,7 @@
+cd frontend
+docker build -t shaunakondare/tic-tac-toe-frontend:latest .
+docker push shaunakondare/tic-tac-toe-frontend:latest
+
+cd backend
+docker build -t shaunakondare/tic-tac-toe-backend:latest .
+docker push shaunakondare/tic-tac-toe-backend:latest
