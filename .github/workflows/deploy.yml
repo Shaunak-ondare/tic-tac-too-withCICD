@@ -49,10 +49,10 @@ jobs:
         docker push $ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG
 
   # ------------------------------------------------------------------------
-  # STAGE 2: Provision Infrastructure and Deploy to EKS using Terraform
+  # STAGE 2: Provision Infrastructure using Terraform
   # ------------------------------------------------------------------------
-  terraform_deploy:
-    name: Terraform EKS Infrastructure & Deployment
+  terraform_infrastructure:
+    name: Terraform EKS Infrastructure
     runs-on: ubuntu-latest
     needs: build_and_push   # This guarantees this job only starts if Stage 1 succeeds
     
@@ -72,7 +72,41 @@ jobs:
       with:
         terraform_version: "1.6.0"
 
-    - name: Terraform Init and Apply (Creates EKS + Deploys App)
+    - name: Terraform Apply (Infrastructure Only)
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        cd terraform
+        terraform init
+        terraform apply -target=module.vpc -target=module.eks -auto-approve \
+          -var="frontend_image=$ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG" \
+          -var="backend_image=$ECR_REGISTRY/tictactoe-backend:$IMAGE_TAG"
+
+  # ------------------------------------------------------------------------
+  # STAGE 3: Deploy Application securely into EKS
+  # ------------------------------------------------------------------------
+  terraform_application:
+    name: Kubernetes Application Deployment
+    runs-on: ubuntu-latest
+    needs: terraform_infrastructure   # Waits for EKS cluster to finish provisioning
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "1.6.0"
+
+    - name: Terraform Apply (Kubernetes Pods & Services)
       env:
         IMAGE_TAG: ${{ github.sha }}
       run: |
