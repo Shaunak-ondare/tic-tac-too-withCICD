@@ -100,9 +100,33 @@ variable "backend_service_port" {
   default     = 8080
 }
 
+variable "oidc_issuer_url" {
+  description = "OIDC issuer URL for application sign-in."
+  type        = string
+  default     = ""
+}
+
+variable "oidc_client_id" {
+  description = "OIDC client ID for application sign-in."
+  type        = string
+  default     = ""
+}
+
+variable "oidc_client_secret" {
+  description = "OIDC client secret for application sign-in."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "oidc_redirect_uri" {
+  description = "OIDC redirect URI registered with the identity provider."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags applied to AWS resources."
   type        = map(string)
   default     = {}
 }
-

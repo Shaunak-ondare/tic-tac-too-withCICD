@@ -10,8 +10,8 @@ node_min_size       = 1
 node_max_size       = 2
 
 application_namespace   = "tic-tac-toe"
-frontend_image          = "shaunakondare/tic-tac-toe-frontend:latest"
-backend_image           = "shaunakondare/tic-tac-toe-backend:latest"
+frontend_image          = "961641296773.dkr.ecr.ap-south-1.amazonaws.com/shaunak/tictactoe-frontend:11ada3c22b29b0e2c5da091eb6705fbc4c332b7b"
+backend_image           = "961641296773.dkr.ecr.ap-south-1.amazonaws.com/shaunak/tictactoe-backend:11ada3c22b29b0e2c5da091eb6705fbc4c332b7b"
 frontend_replicas       = 1
 backend_replicas        = 1
 frontend_container_port = 80
@@ -19,6 +19,10 @@ backend_container_port  = 3001
 frontend_service_port   = 80
 backend_service_port    = 3001
 
+oidc_issuer_url    = ""
+oidc_client_id     = ""
+oidc_client_secret = ""
+oidc_redirect_uri  = ""
 
 tags = {
   Owner = "shaunak-ondare"

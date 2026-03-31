@@ -5,9 +5,14 @@ data "aws_availability_zones" "available" {
 locals {
   cluster_name = "${var.project_name}-${var.environment}"
 
-  azs             = slice(data.aws_availability_zones.available.names, 0, 2)
+  azs             = slice(data.aws_availability_zones.available.names, 0, 3)
   private_subnets = [for index, az in local.azs : cidrsubnet(var.vpc_cidr, 4, index)]
   public_subnets  = [for index, az in local.azs : cidrsubnet(var.vpc_cidr, 4, index + 8)]
+  oidc_enabled = alltrue([
+    trimspace(var.oidc_issuer_url) != "",
+    trimspace(var.oidc_client_id) != "",
+    trimspace(var.oidc_redirect_uri) != ""
+  ])
 
   common_tags = merge(
     {
@@ -73,9 +78,9 @@ module "eks" {
   }
 
   cluster_addons = {
-    coredns            = {}
-    kube-proxy         = {}
-    vpc-cni            = {}
+    coredns    = {}
+    kube-proxy = {}
+    vpc-cni    = {}
   }
 
   tags = local.common_tags
@@ -101,8 +106,21 @@ resource "kubernetes_config_map_v1" "frontend_config" {
   }
 
   data = {
-    BACKEND_URL = "http://backend.${var.application_namespace}.svc.cluster.local:${var.backend_service_port}"
-  }
+    BACKEND_URL       = "http://backend.${var.application_namespace}.svc.cluster.local:${var.backend_service_port}"
+    OIDC_ENABLED      = tostring(local.oidc_enabled)
+    OIDC_ISSUER_URL   = var.oidc_issuer_url
+    OIDC_CLIENT_ID    = var.oidc_client_id
+    OIDC_REDIRECT_URI = var.oidc_redirect_uri
+    "app-config.js" = <<-EOT
+      window.__APP_CONFIG__ = ${jsonencode({
+    backendUrl      = "http://backend.${var.application_namespace}.svc.cluster.local:${var.backend_service_port}"
+    oidcEnabled     = local.oidc_enabled
+    oidcIssuerUrl   = var.oidc_issuer_url
+    oidcClientId    = var.oidc_client_id
+    oidcRedirectUri = var.oidc_redirect_uri
+})};
+    EOT
+}
 }
 
 resource "kubernetes_deployment_v1" "backend" {
@@ -134,11 +152,6 @@ resource "kubernetes_deployment_v1" "backend" {
         container {
           name  = "backend"
           image = var.backend_image
-
-          args = [
-            "-listen=:${var.backend_container_port}",
-            "-text=backend is running"
-          ]
 
           port {
             container_port = var.backend_container_port
@@ -201,18 +214,27 @@ resource "kubernetes_deployment_v1" "frontend" {
           name  = "frontend"
           image = var.frontend_image
 
-          env {
-            name = "BACKEND_URL"
-            value_from {
-              config_map_key_ref {
-                name = kubernetes_config_map_v1.frontend_config.metadata[0].name
-                key  = "BACKEND_URL"
-              }
-            }
+          volume_mount {
+            name       = "frontend-runtime-config"
+            mount_path = "/usr/share/nginx/html/app-config.js"
+            sub_path   = "app-config.js"
           }
 
           port {
             container_port = var.frontend_container_port
+          }
+        }
+
+        volume {
+          name = "frontend-runtime-config"
+
+          config_map {
+            name = kubernetes_config_map_v1.frontend_config.metadata[0].name
+
+            items {
+              key  = "app-config.js"
+              path = "app-config.js"
+            }
           }
         }
       }
