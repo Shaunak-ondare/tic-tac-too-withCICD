@@ -1,0 +1,65 @@
+name: Deploy to Amazon EKS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}                   # e.g., us-east-1
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}               # e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com
+  EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}       # Name of the EKS cluster
+
+jobs:
+  deploy:
+    name: Build, Push to ECR, and Deploy to EKS
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Build, tag, and push backend image to Amazon ECR
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/tictactoe-backend:$IMAGE_TAG ./backend
+        docker push $ECR_REGISTRY/tictactoe-backend:$IMAGE_TAG
+
+    - name: Build, tag, and push frontend image to Amazon ECR
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+        # Wait until backend is deployed or pass the predefined Load Balancer URL here.
+        # Ensure you create this secret if you know your backend endpoint.
+        VITE_BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
+      run: |
+        docker build --build-arg VITE_BACKEND_URL=$VITE_BACKEND_URL -t $ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG ./frontend
+        docker push $ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG
+
+    - name: Update kubeconfig
+      run: |
+        aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+    - name: Deploy to Amazon EKS
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Replace the placeholder in the k8s manifests with the actual image URI
+        sed -i 's|REPLACE_ME_ECR_REGISTRY/tictactoe-backend:latest|'"$ECR_REGISTRY"'/tictactoe-backend:'"$IMAGE_TAG"'|g' k8s/backend.yaml
+        sed -i 's|REPLACE_ME_ECR_REGISTRY/tictactoe-frontend:latest|'"$ECR_REGISTRY"'/tictactoe-frontend:'"$IMAGE_TAG"'|g' k8s/frontend.yaml
+        
+        # Apply the manifests to the cluster
+        kubectl apply -f k8s/backend.yaml
+        kubectl apply -f k8s/frontend.yaml

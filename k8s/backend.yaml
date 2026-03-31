@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tictactoe-backend
+  labels:
+    app: tictactoe-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tictactoe-backend
+  template:
+    metadata:
+      labels:
+        app: tictactoe-backend
+    spec:
+      containers:
+      - name: tictactoe-backend
+        # In the CI/CD pipeline, the image tag will be replaced dynamically
+        image: REPLACE_ME_ECR_REGISTRY/tictactoe-backend:latest
+        ports:
+        - containerPort: 3001
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tictactoe-backend-service
+  labels:
+    app: tictactoe-backend
+spec:
+  # LoadBalancer allows external access (creating an AWS Classic or Network Load Balancer)
+  type: LoadBalancer
+  selector:
+    app: tictactoe-backend
+  ports:
+  - protocol: TCP
+    port: 3001
+    targetPort: 3001
