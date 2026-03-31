@@ -7,14 +7,54 @@ on:
   workflow_dispatch:
 
 env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}                   # e.g., us-east-1
-  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}               # e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com
-  EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}       # Name of the EKS cluster
+  AWS_REGION: ${{ secrets.AWS_REGION }}                   
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}               
+  EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}       
 
 jobs:
-  deploy:
-    name: Build, Push to ECR, and Deploy to EKS
+  # ------------------------------------------------------------------------
+  # STAGE 1: Build Docker Images and Push to Amazon ECR
+  # ------------------------------------------------------------------------
+  build_and_push:
+    name: Build & Push Images to ECR
     runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build and Push Backend Image
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/tictactoe-backend:$IMAGE_TAG ./backend
+        docker push $ECR_REGISTRY/tictactoe-backend:$IMAGE_TAG
+
+    - name: Build and Push Frontend Image
+      env:
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        docker build -t $ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG ./frontend
+        docker push $ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG
+
+  # ------------------------------------------------------------------------
+  # STAGE 2: Provision Infrastructure and Deploy to EKS using Terraform
+  # ------------------------------------------------------------------------
+  terraform_deploy:
+    name: Terraform EKS Infrastructure & Deployment
+    runs-on: ubuntu-latest
+    needs: build_and_push   # This guarantees this job only starts if Stage 1 succeeds
     
     steps:
     - name: Checkout code
@@ -32,25 +72,7 @@ jobs:
       with:
         terraform_version: "1.6.0"
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-
-    - name: Build, tag, and push backend image to Amazon ECR
-      env:
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker build -t $ECR_REGISTRY/tictactoe-backend:$IMAGE_TAG ./backend
-        docker push $ECR_REGISTRY/tictactoe-backend:$IMAGE_TAG
-
-    - name: Build, tag, and push frontend image to Amazon ECR
-      env:
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker build -t $ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG ./frontend
-        docker push $ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG
-
-    - name: Deploy Infrastructure and Application with Terraform
+    - name: Terraform Init and Apply (Creates EKS + Deploys App)
       env:
         IMAGE_TAG: ${{ github.sha }}
       run: |
