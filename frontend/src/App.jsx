@@ -3,8 +3,8 @@ import { io } from 'socket.io-client';
 import Board from './components/Board';
 import './App.css';
 
-// In production, we'll read VITE_BACKEND_URL from the environment. For local dev, fallback to localhost:3001.
-const URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+// In production, Nginx will proxy WebSockets from our own domain. For local dev, fallback to localhost:3001.
+const URL = import.meta.env.VITE_BACKEND_URL || (import.meta.env.PROD ? '/' : 'http://localhost:3001');
 
 function App() {
   const [socket, setSocket] = useState(null);

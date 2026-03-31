@@ -8,14 +8,14 @@ RUN npm install
 
 COPY . .
 
-# We can pass the backend URL at build time so Vite compile it into the static bundle
-ARG VITE_BACKEND_URL
-ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
-
+# No dynamic ARG needed since Nginx will reverse-proxy natively
 RUN npm run build
 
 # Stage 2: Serve with NGINX
 FROM nginx:alpine
+
+# Copy custom NGINX proxy configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy the build output to replace the default nginx contents.
 COPY --from=build /app/dist /usr/share/nginx/html

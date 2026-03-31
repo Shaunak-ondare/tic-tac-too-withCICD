@@ -46,11 +46,8 @@ jobs:
     - name: Build, tag, and push frontend image to Amazon ECR
       env:
         IMAGE_TAG: ${{ github.sha }}
-        # Wait until backend is deployed or pass the predefined Load Balancer URL here.
-        # Ensure you create this secret if you know your backend endpoint.
-        VITE_BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
       run: |
-        docker build --build-arg VITE_BACKEND_URL=$VITE_BACKEND_URL -t $ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG ./frontend
+        docker build -t $ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG ./frontend
         docker push $ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG
 
     - name: Deploy Infrastructure and Application with Terraform

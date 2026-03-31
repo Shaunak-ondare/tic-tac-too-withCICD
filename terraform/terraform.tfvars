@@ -9,7 +9,7 @@ node_desired_size   = 2
 node_min_size       = 2
 node_max_size       = 4
 
-application_namespace   = "tictakto"
+application_namespace   = "tic-tac-toe"
 frontend_image          = "shaunakondare/tic-tac-toe-frontend:latest"
 backend_image           = "shaunakondare/tic-tac-toe-backend:latest"
 frontend_replicas       = 2
