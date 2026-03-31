@@ -27,6 +27,11 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "1.6.0"
+
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
@@ -48,18 +53,12 @@ jobs:
         docker build --build-arg VITE_BACKEND_URL=$VITE_BACKEND_URL -t $ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG ./frontend
         docker push $ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG
 
-    - name: Update kubeconfig
-      run: |
-        aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
-
-    - name: Deploy to Amazon EKS
+    - name: Deploy Infrastructure and Application with Terraform
       env:
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        # Replace the placeholder in the k8s manifests with the actual image URI
-        sed -i 's|REPLACE_ME_ECR_REGISTRY/tictactoe-backend:latest|'"$ECR_REGISTRY"'/tictactoe-backend:'"$IMAGE_TAG"'|g' k8s/backend.yaml
-        sed -i 's|REPLACE_ME_ECR_REGISTRY/tictactoe-frontend:latest|'"$ECR_REGISTRY"'/tictactoe-frontend:'"$IMAGE_TAG"'|g' k8s/frontend.yaml
-        
-        # Apply the manifests to the cluster
-        kubectl apply -f k8s/backend.yaml
-        kubectl apply -f k8s/frontend.yaml
+        cd terraform
+        terraform init
+        terraform apply -auto-approve \
+          -var="frontend_image=$ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG" \
+          -var="backend_image=$ECR_REGISTRY/tictactoe-backend:$IMAGE_TAG"
