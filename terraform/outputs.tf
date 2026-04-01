@@ -8,6 +8,16 @@ output "cluster_endpoint" {
   value       = module.eks.cluster_endpoint
 }
 
+output "frontend_load_balancer_hostname" {
+  description = "Public DNS hostname of the frontend service load balancer."
+  value       = try(kubernetes_service_v1.frontend.status[0].load_balancer[0].ingress[0].hostname, null)
+}
+
+output "frontend_url" {
+  description = "Public HTTP URL for the frontend application."
+  value       = try("http://${kubernetes_service_v1.frontend.status[0].load_balancer[0].ingress[0].hostname}", null)
+}
+
 output "configure_kubectl" {
   description = "Command to update local kubeconfig."
   value       = "aws eks update-kubeconfig --name ${module.eks.cluster_name} --region ${var.aws_region}"
