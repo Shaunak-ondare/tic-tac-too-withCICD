@@ -13,6 +13,7 @@ locals {
     trimspace(var.oidc_client_id) != "",
     trimspace(var.oidc_redirect_uri) != ""
   ])
+  cluster_admin_is_root = length(regexall(":root$", var.cluster_admin_user_arn)) > 0
 
   common_tags = merge(
     {
@@ -55,8 +56,9 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0"
 
-  cluster_name    = local.cluster_name
-  cluster_version = var.kubernetes_version
+  cluster_name        = local.cluster_name
+  cluster_version     = var.kubernetes_version
+  authentication_mode = "API_AND_CONFIG_MAP"
 
   cluster_endpoint_public_access           = true
   enable_cluster_creator_admin_permissions = true
@@ -83,6 +85,21 @@ module "eks" {
     vpc-cni    = {}
   }
 
+  access_entries = var.cluster_admin_user_arn == "" || local.cluster_admin_is_root ? {} : {
+    cluster_admin = {
+      principal_arn = var.cluster_admin_user_arn
+
+      policy_associations = {
+        admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+      }
+    }
+  }
+
   tags = local.common_tags
 }
 
@@ -92,7 +109,7 @@ module "eks_aws_auth" {
 
   manage_aws_auth_configmap = true
 
-  aws_auth_users = var.cluster_admin_user_arn == "" ? [] : [
+  aws_auth_users = var.cluster_admin_user_arn == "" || !local.cluster_admin_is_root ? [] : [
     {
       userarn  = var.cluster_admin_user_arn
       username = "admin"
@@ -111,6 +128,28 @@ resource "kubernetes_namespace" "application" {
       "app.kubernetes.io/managed-by" = "terraform"
       "app.kubernetes.io/part-of"    = var.project_name
     }
+  }
+
+  depends_on = [module.eks, module.eks_aws_auth]
+}
+
+resource "kubernetes_cluster_role_binding_v1" "cluster_admin" {
+  count = var.cluster_admin_user_arn == "" ? 0 : 1
+
+  metadata {
+    name = "cluster-admin-${replace(replace(var.cluster_admin_user_arn, ":", "-"), "/", "-")}"
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = "cluster-admin"
+  }
+
+  subject {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "User"
+    name      = var.cluster_admin_user_arn
   }
 
   depends_on = [module.eks, module.eks_aws_auth]
