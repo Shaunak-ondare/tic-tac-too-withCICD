@@ -125,6 +125,12 @@ variable "oidc_redirect_uri" {
   default     = ""
 }
 
+variable "cluster_admin_user_arn" {
+  description = "IAM user ARN to grant cluster-admin access through aws-auth."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags applied to AWS resources."
   type        = map(string)

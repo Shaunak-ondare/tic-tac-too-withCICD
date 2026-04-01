@@ -5,3 +5,12 @@ docker push shaunakondare/tic-tac-toe-frontend:latest
 cd backend
 docker build -t shaunakondare/tic-tac-toe-backend:latest .
 docker push shaunakondare/tic-tac-toe-backend:latest
+
+
+aws eks update-kubeconfig --region ap-south-1 --name shaunak-eks-dev
+aws eks get-token --region ap-south-1 --cluster-name shaunak-eks-dev
+
+aws eks update-kubeconfig --region ap-south-1 --name <your-cluster-name>
+
+
+http://a7a1d3cb563f04ff68556337f5101964-1025839413.ap-south-1.elb.amazonaws.com

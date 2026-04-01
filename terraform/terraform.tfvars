@@ -19,10 +19,12 @@ backend_container_port  = 3001
 frontend_service_port   = 80
 backend_service_port    = 3001
 
-oidc_issuer_url    = "https://cognito-idp.ap-south-1.amazonaws.com/ap-south-1_reHUe50iP"
-oidc_client_id     = "17megb85iapt3kbfgd8q0g1gj"
-oidc_client_secret = ""
-oidc_redirect_uri  = "http://a330d1a46c1224c07acca4b6d6bed1e0-1281062264.ap-south-1.elb.amazonaws.com/callback"
+oidc_issuer_url        = "https://cognito-idp.ap-south-1.amazonaws.com/ap-south-1_reHUe50iP"
+oidc_client_id         = "17megb85iapt3kbfgd8q0g1gj"
+oidc_client_secret     = ""
+oidc_redirect_uri      = "http://a330d1a46c1224c07acca4b6d6bed1e0-1281062264.ap-south-1.elb.amazonaws.com/callback"
+cluster_admin_user_arn = "arn:aws:iam::961641296773:root"
+
 tags = {
   Owner = "shaunak-ondare"
 }

@@ -86,6 +86,23 @@ module "eks" {
   tags = local.common_tags
 }
 
+module "eks_aws_auth" {
+  source  = "terraform-aws-modules/eks/aws//modules/aws-auth"
+  version = "~> 20.0"
+
+  manage_aws_auth_configmap = true
+
+  aws_auth_users = var.cluster_admin_user_arn == "" ? [] : [
+    {
+      userarn  = var.cluster_admin_user_arn
+      username = "admin"
+      groups   = ["system:masters"]
+    }
+  ]
+
+  depends_on = [module.eks]
+}
+
 resource "kubernetes_namespace" "application" {
   metadata {
     name = var.application_namespace
@@ -96,7 +113,7 @@ resource "kubernetes_namespace" "application" {
     }
   }
 
-  depends_on = [module.eks]
+  depends_on = [module.eks, module.eks_aws_auth]
 }
 
 resource "kubernetes_config_map_v1" "frontend_config" {
@@ -161,7 +178,7 @@ resource "kubernetes_deployment_v1" "backend" {
     }
   }
 
-  depends_on = [module.eks]
+  depends_on = [module.eks, module.eks_aws_auth]
 }
 
 resource "kubernetes_service_v1" "backend" {
@@ -241,7 +258,7 @@ resource "kubernetes_deployment_v1" "frontend" {
     }
   }
 
-  depends_on = [module.eks]
+  depends_on = [module.eks, module.eks_aws_auth]
 }
 
 resource "kubernetes_service_v1" "frontend" {
