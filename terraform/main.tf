@@ -2,6 +2,8 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
+data "aws_caller_identity" "current" {}
+
 locals {
   cluster_name = "${var.project_name}-${var.environment}"
 
@@ -13,7 +15,8 @@ locals {
     trimspace(var.oidc_client_id) != "",
     trimspace(var.oidc_redirect_uri) != ""
   ])
-  cluster_admin_is_root = length(regexall(":root$", var.cluster_admin_user_arn)) > 0
+  root_assumable_cluster_admin_role_arn = try(aws_iam_role.root_assumable_cluster_admin[0].arn, "")
+  cluster_admin_principal_arn           = trimspace(var.cluster_admin_user_arn) != "" ? var.cluster_admin_user_arn : local.root_assumable_cluster_admin_role_arn
 
   common_tags = merge(
     {
@@ -23,6 +26,50 @@ locals {
     },
     var.tags
   )
+}
+
+resource "aws_iam_role" "root_assumable_cluster_admin" {
+  count = var.create_root_assumable_cluster_admin_role && trimspace(var.cluster_admin_user_arn) == "" ? 1 : 0
+
+  name = var.root_assumable_cluster_admin_role_name
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy" "root_assumable_cluster_admin_eks_access" {
+  count = var.create_root_assumable_cluster_admin_role && trimspace(var.cluster_admin_user_arn) == "" ? 1 : 0
+
+  name = "${local.cluster_name}-eks-access"
+  role = aws_iam_role.root_assumable_cluster_admin[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:DescribeCluster",
+          "eks:ListClusters"
+        ]
+        Resource = [
+          module.eks.cluster_arn
+        ]
+      }
+    ]
+  })
 }
 
 module "vpc" {
@@ -85,9 +132,9 @@ module "eks" {
     vpc-cni    = {}
   }
 
-  access_entries = var.cluster_admin_user_arn == "" || local.cluster_admin_is_root ? {} : {
+  access_entries = local.cluster_admin_principal_arn == "" ? {} : {
     cluster_admin = {
-      principal_arn = var.cluster_admin_user_arn
+      principal_arn = local.cluster_admin_principal_arn
 
       policy_associations = {
         admin = {
@@ -103,23 +150,6 @@ module "eks" {
   tags = local.common_tags
 }
 
-module "eks_aws_auth" {
-  source  = "terraform-aws-modules/eks/aws//modules/aws-auth"
-  version = "~> 20.0"
-
-  manage_aws_auth_configmap = true
-
-  aws_auth_users = var.cluster_admin_user_arn == "" || !local.cluster_admin_is_root ? [] : [
-    {
-      userarn  = var.cluster_admin_user_arn
-      username = "admin"
-      groups   = ["system:masters"]
-    }
-  ]
-
-  depends_on = [module.eks]
-}
-
 resource "kubernetes_namespace" "application" {
   metadata {
     name = var.application_namespace
@@ -130,29 +160,7 @@ resource "kubernetes_namespace" "application" {
     }
   }
 
-  depends_on = [module.eks, module.eks_aws_auth]
-}
-
-resource "kubernetes_cluster_role_binding_v1" "cluster_admin" {
-  count = var.cluster_admin_user_arn == "" ? 0 : 1
-
-  metadata {
-    name = "cluster-admin-${replace(replace(var.cluster_admin_user_arn, ":", "-"), "/", "-")}"
-  }
-
-  role_ref {
-    api_group = "rbac.authorization.k8s.io"
-    kind      = "ClusterRole"
-    name      = "cluster-admin"
-  }
-
-  subject {
-    api_group = "rbac.authorization.k8s.io"
-    kind      = "User"
-    name      = var.cluster_admin_user_arn
-  }
-
-  depends_on = [module.eks, module.eks_aws_auth]
+  depends_on = [module.eks]
 }
 
 resource "kubernetes_config_map_v1" "frontend_config" {
@@ -217,7 +225,7 @@ resource "kubernetes_deployment_v1" "backend" {
     }
   }
 
-  depends_on = [module.eks, module.eks_aws_auth]
+  depends_on = [module.eks]
 }
 
 resource "kubernetes_service_v1" "backend" {
@@ -297,7 +305,7 @@ resource "kubernetes_deployment_v1" "frontend" {
     }
   }
 
-  depends_on = [module.eks, module.eks_aws_auth]
+  depends_on = [module.eks]
 }
 
 resource "kubernetes_service_v1" "frontend" {

@@ -126,9 +126,26 @@ variable "oidc_redirect_uri" {
 }
 
 variable "cluster_admin_user_arn" {
-  description = "IAM user ARN to grant cluster-admin access through aws-auth."
+  description = "IAM user or role ARN to grant cluster-admin access through EKS access entries."
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.cluster_admin_user_arn == "" || length(regexall(":root$", var.cluster_admin_user_arn)) == 0
+    error_message = "cluster_admin_user_arn must be an IAM user or role ARN, not the AWS account root ARN."
+  }
+}
+
+variable "create_root_assumable_cluster_admin_role" {
+  description = "When true, create an IAM role trusted by the current AWS account root and grant that role EKS cluster-admin access."
+  type        = bool
+  default     = true
+}
+
+variable "root_assumable_cluster_admin_role_name" {
+  description = "Name of the IAM role that the current AWS account root can assume for EKS cluster administration."
+  type        = string
+  default     = "eks-root-admin"
 }
 
 variable "tags" {
