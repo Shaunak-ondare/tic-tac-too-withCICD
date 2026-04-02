@@ -2,7 +2,7 @@ aws_region         = "ap-south-1"
 project_name       = "shaunak-eks"
 environment        = "dev"
 vpc_cidr           = "10.20.0.0/16"
-kubernetes_version = "1.30"
+kubernetes_version = "1.32"
 
 node_instance_types = ["t3.medium"]
 node_desired_size   = 1
