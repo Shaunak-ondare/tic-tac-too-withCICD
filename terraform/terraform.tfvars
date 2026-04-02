@@ -5,9 +5,9 @@ vpc_cidr           = "10.20.0.0/16"
 kubernetes_version = "1.30"
 
 node_instance_types = ["t3.micro"]
-node_desired_size   = 1
-node_min_size       = 1
-node_max_size       = 2
+node_desired_size   = 2
+node_min_size       = 2
+node_max_size       = 3
 
 application_namespace   = "tic-tac-toe"
 frontend_image          = "823963318980.dkr.ecr.ap-south-1.amazonaws.com/shaunak:frontend-11ada3c22b29b0e2c5da091eb6705fbc4c332b7b"
