@@ -17,7 +17,7 @@ spec:
       containers:
       - name: tictactoe-frontend
         # In the CI/CD pipeline, the image tag will be replaced dynamically
-        image: REPLACE_ME_ECR_REGISTRY/tictactoe-frontend:latest
+        image: 961641296773.dkr.ecr.ap-south-1.amazonaws.com/tictactoe-frontend:latest
         ports:
         - containerPort: 80
         resources:
