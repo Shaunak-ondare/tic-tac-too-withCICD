@@ -4,7 +4,7 @@ environment        = "dev"
 vpc_cidr           = "10.20.0.0/16"
 kubernetes_version = "1.30"
 
-node_instance_types = ["t3.micro"]
+node_instance_types = ["c7i-flex.large"]
 node_desired_size   = 2
 node_min_size       = 1
 node_max_size       = 3
