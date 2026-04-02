@@ -1,25 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: tictactoe-frontend
+  name: frontend
+  namespace: tic-tac-toe
   labels:
-    app: tictactoe-frontend
+    app: frontend
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app: tictactoe-frontend
+      app: frontend
   template:
     metadata:
       labels:
-        app: tictactoe-frontend
+        app: frontend
     spec:
       containers:
-      - name: tictactoe-frontend
-        # In the CI/CD pipeline, the image tag will be replaced dynamically
-        image: 961641296773.dkr.ecr.ap-south-1.amazonaws.com/tictactoe-frontend:latest
+      - name: frontend
+        image: ${FRONTEND_IMAGE}
         ports:
         - containerPort: 80
+        volumeMounts:
+        - name: config-volume
+          mountPath: /usr/share/nginx/html/app-config.js
+          subPath: app-config.js
         resources:
           requests:
             memory: "64Mi"
@@ -27,18 +31,20 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "250m"
+      volumes:
+      - name: config-volume
+        configMap:
+          name: frontend-config
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: tictactoe-frontend-service
-  labels:
-    app: tictactoe-frontend
+  name: frontend
+  namespace: tic-tac-toe
 spec:
-  # LoadBalancer gives an AWS load balancer endpoint pointing to the frontend pods
   type: LoadBalancer
   selector:
-    app: tictactoe-frontend
+    app: frontend
   ports:
   - protocol: TCP
     port: 80

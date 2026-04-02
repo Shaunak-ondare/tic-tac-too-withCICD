@@ -18,7 +18,6 @@ function App() {
   const [message, setMessage] = useState('');
 
   const runtimeConfig = useMemo(() => window.__APP_CONFIG__ || {}, []);
-  const oidcEnabled = Boolean(runtimeConfig.oidcEnabled);
 
   useEffect(() => {
     const newSocket = io(URL, { autoConnect: false });
@@ -99,17 +98,6 @@ function App() {
           {gameState === 'landing' && (
             <div className="center-content fade-in">
               <p className="subtitle">Real-Time Multiplayer</p>
-              <div className={`oidc-banner ${oidcEnabled ? 'oidc-ready' : 'oidc-missing'}`}>
-                <span className="oidc-label">{oidcEnabled ? 'OIDC Ready' : 'OIDC Not Configured'}</span>
-                <p>
-                  {oidcEnabled
-                    ? runtimeConfig.oidcIssuerUrl
-                    : 'Set the OIDC values in Terraform to enable application sign-in configuration.'}
-                </p>
-                {oidcEnabled && (
-                  <p className="oidc-meta">Redirect URI: {runtimeConfig.oidcRedirectUri}</p>
-                )}
-              </div>
               <button className="primary-btn" onClick={findGame}>
                 Find Match <span className="arrow">-&gt;</span>
               </button>

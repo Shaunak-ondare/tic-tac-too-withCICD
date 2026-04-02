@@ -72,7 +72,7 @@ resource "aws_iam_role_policy" "root_assumable_cluster_admin_eks_access" {
   })
 }
 
-module "vpc" {
+module "main_vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 5.0"
 
@@ -99,7 +99,7 @@ module "vpc" {
   tags = local.common_tags
 }
 
-module "eks" {
+module "eks_cluster" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0"
 
@@ -110,11 +110,11 @@ module "eks" {
   cluster_endpoint_public_access           = true
   enable_cluster_creator_admin_permissions = true
 
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
+  vpc_id     = module.main_vpc.vpc_id
+  subnet_ids = module.main_vpc.private_subnets
 
   eks_managed_node_groups = {
-    default = {
+    default_nodes = {
       instance_types = var.node_instance_types
       min_size       = var.node_min_size
       max_size       = var.node_max_size
@@ -132,13 +132,27 @@ module "eks" {
     vpc-cni    = {}
   }
 
-  access_entries = local.cluster_admin_principal_arn == "" ? {} : {
+  access_entries = {
+    # 1. Pipeline/Admin IAM User
     cluster_admin = {
-      principal_arn = local.cluster_admin_principal_arn
+      principal_arn = local.cluster_admin_principal_arn != "" ? local.cluster_admin_principal_arn : data.aws_caller_identity.current.arn
 
       policy_associations = {
         admin = {
-          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+      }
+    }
+    # 2. AWS Account Root User (Explicitly specified for account 823963318980)
+    root_access = {
+      principal_arn = "arn:aws:iam::823963318980:root"
+
+      policy_associations = {
+        admin = {
+          policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
           access_scope = {
             type = "cluster"
           }
@@ -150,180 +164,4 @@ module "eks" {
   tags = local.common_tags
 }
 
-resource "kubernetes_namespace" "application" {
-  metadata {
-    name = var.application_namespace
-
-    labels = {
-      "app.kubernetes.io/managed-by" = "terraform"
-      "app.kubernetes.io/part-of"    = var.project_name
-    }
-  }
-
-  depends_on = [module.eks]
-}
-
-resource "kubernetes_config_map_v1" "frontend_config" {
-  metadata {
-    name      = "frontend-config"
-    namespace = kubernetes_namespace.application.metadata[0].name
-  }
-
-  data = {
-    BACKEND_URL       = "http://backend.${var.application_namespace}.svc.cluster.local:${var.backend_service_port}"
-    OIDC_ENABLED      = tostring(local.oidc_enabled)
-    OIDC_ISSUER_URL   = var.oidc_issuer_url
-    OIDC_CLIENT_ID    = var.oidc_client_id
-    OIDC_REDIRECT_URI = var.oidc_redirect_uri
-    "app-config.js" = <<-EOT
-      window.__APP_CONFIG__ = ${jsonencode({
-    backendUrl      = "http://backend.${var.application_namespace}.svc.cluster.local:${var.backend_service_port}"
-    oidcEnabled     = local.oidc_enabled
-    oidcIssuerUrl   = var.oidc_issuer_url
-    oidcClientId    = var.oidc_client_id
-    oidcRedirectUri = var.oidc_redirect_uri
-})};
-    EOT
-}
-}
-
-resource "kubernetes_deployment_v1" "backend" {
-  metadata {
-    name      = "backend"
-    namespace = kubernetes_namespace.application.metadata[0].name
-    labels = {
-      app = "backend"
-    }
-  }
-
-  spec {
-    replicas = var.backend_replicas
-
-    selector {
-      match_labels = {
-        app = "backend"
-      }
-    }
-
-    template {
-      metadata {
-        labels = {
-          app = "backend"
-        }
-      }
-
-      spec {
-        container {
-          name  = "backend"
-          image = var.backend_image
-
-          port {
-            container_port = var.backend_container_port
-          }
-        }
-      }
-    }
-  }
-
-  depends_on = [module.eks]
-}
-
-resource "kubernetes_service_v1" "backend" {
-  metadata {
-    name      = "backend"
-    namespace = kubernetes_namespace.application.metadata[0].name
-  }
-
-  spec {
-    selector = {
-      app = kubernetes_deployment_v1.backend.metadata[0].labels.app
-    }
-
-    port {
-      port        = var.backend_service_port
-      target_port = var.backend_container_port
-    }
-
-    type = "ClusterIP"
-  }
-}
-
-resource "kubernetes_deployment_v1" "frontend" {
-  metadata {
-    name      = "frontend"
-    namespace = kubernetes_namespace.application.metadata[0].name
-    labels = {
-      app = "frontend"
-    }
-  }
-
-  spec {
-    replicas = var.frontend_replicas
-
-    selector {
-      match_labels = {
-        app = "frontend"
-      }
-    }
-
-    template {
-      metadata {
-        labels = {
-          app = "frontend"
-        }
-      }
-
-      spec {
-        container {
-          name  = "frontend"
-          image = var.frontend_image
-
-          volume_mount {
-            name       = "frontend-runtime-config"
-            mount_path = "/usr/share/nginx/html/app-config.js"
-            sub_path   = "app-config.js"
-          }
-
-          port {
-            container_port = var.frontend_container_port
-          }
-        }
-
-        volume {
-          name = "frontend-runtime-config"
-
-          config_map {
-            name = kubernetes_config_map_v1.frontend_config.metadata[0].name
-
-            items {
-              key  = "app-config.js"
-              path = "app-config.js"
-            }
-          }
-        }
-      }
-    }
-  }
-
-  depends_on = [module.eks]
-}
-
-resource "kubernetes_service_v1" "frontend" {
-  metadata {
-    name      = "frontend"
-    namespace = kubernetes_namespace.application.metadata[0].name
-  }
-
-  spec {
-    selector = {
-      app = kubernetes_deployment_v1.frontend.metadata[0].labels.app
-    }
-
-    port {
-      port        = var.frontend_service_port
-      target_port = var.frontend_container_port
-    }
-
-    type = "LoadBalancer"
-  }
-}
+# (Kubernetes resources removed: managed via k8s/ manifests in CI/CD pipeline)
