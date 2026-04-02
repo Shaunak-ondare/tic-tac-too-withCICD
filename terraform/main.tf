@@ -65,7 +65,7 @@ resource "aws_iam_role_policy" "root_assumable_cluster_admin_eks_access" {
           "eks:ListClusters"
         ]
         Resource = [
-          module.eks.cluster_arn
+          module.eks_cluster.cluster_arn
         ]
       }
     ]
