@@ -124,3 +124,13 @@ jobs:
         envsubst < k8s/configmap.yaml | kubectl apply -f -
         envsubst < k8s/backend.yaml | kubectl apply -f -
         envsubst < k8s/frontend.yaml | kubectl apply -f -
+
+    - name: Get LoadBalancer URL
+      run: |
+        echo "Waiting for LoadBalancer to be ready..."
+        sleep 30
+        kubectl get svc -n tic-tac-toe frontend -o wide
+        URL=$(kubectl get svc -n tic-tac-toe frontend -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+        echo "------------------------------------------------------------"
+        echo "YOUR APP IS LIVE AT: http://$URL"
+        echo "------------------------------------------------------------"
