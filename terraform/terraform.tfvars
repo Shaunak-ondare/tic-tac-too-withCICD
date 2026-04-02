@@ -10,8 +10,8 @@ node_min_size       = 1
 node_max_size       = 2
 
 application_namespace   = "tic-tac-toe"
-frontend_image          = "823963318980.dkr.ecr.ap-south-1.amazonaws.com/shaunak/tictactoe-frontend:11ada3c22b29b0e2c5da091eb6705fbc4c332b7b"
-backend_image           = "823963318980.dkr.ecr.ap-south-1.amazonaws.com/shaunak/tictactoe-backend:11ada3c22b29b0e2c5da091eb6705fbc4c332b7b"
+frontend_image          = "823963318980.dkr.ecr.ap-south-1.amazonaws.com/shaunak:frontend-11ada3c22b29b0e2c5da091eb6705fbc4c332b7b"
+backend_image           = "823963318980.dkr.ecr.ap-south-1.amazonaws.com/shaunak:backend-11ada3c22b29b0e2c5da091eb6705fbc4c332b7b"
 frontend_replicas       = 1
 backend_replicas        = 1
 frontend_container_port = 80

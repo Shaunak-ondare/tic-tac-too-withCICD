@@ -41,15 +41,15 @@ jobs:
       env:
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $ECR_REGISTRY/tictactoe-backend:$IMAGE_TAG ./backend
-        docker push $ECR_REGISTRY/tictactoe-backend:$IMAGE_TAG
+        docker build -t $ECR_REGISTRY:backend-$IMAGE_TAG ./backend
+        docker push $ECR_REGISTRY:backend-$IMAGE_TAG
 
     - name: Build and Push Frontend Image
       env:
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG ./frontend
-        docker push $ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG
+        docker build -t $ECR_REGISTRY:frontend-$IMAGE_TAG ./frontend
+        docker push $ECR_REGISTRY:frontend-$IMAGE_TAG
 
   # ------------------------------------------------------------------------
   # STAGE 2: Provision Infrastructure using Terraform
@@ -81,8 +81,8 @@ jobs:
         cd terraform
         terraform init
         terraform apply -target=module.vpc -target=module.eks -auto-approve \
-          -var="frontend_image=$ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG" \
-          -var="backend_image=$ECR_REGISTRY/tictactoe-backend:$IMAGE_TAG"
+          -var="frontend_image=$ECR_REGISTRY:frontend-$IMAGE_TAG" \
+          -var="backend_image=$ECR_REGISTRY:backend-$IMAGE_TAG"
 
   # ------------------------------------------------------------------------
   # STAGE 3: Deploy Application securely into EKS
@@ -114,5 +114,5 @@ jobs:
         cd terraform
         terraform init
         terraform apply -auto-approve \
-          -var="frontend_image=$ECR_REGISTRY/tictactoe-frontend:$IMAGE_TAG" \
-          -var="backend_image=$ECR_REGISTRY/tictactoe-backend:$IMAGE_TAG"
+          -var="frontend_image=$ECR_REGISTRY:frontend-$IMAGE_TAG" \
+          -var="backend_image=$ECR_REGISTRY:backend-$IMAGE_TAG"
