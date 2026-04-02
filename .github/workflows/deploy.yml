@@ -13,7 +13,7 @@ permissions:
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}                   
   ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}               
-  EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}       
+  EKS_CLUSTER_NAME: shaunak-eks-dev
 
 jobs:
   # ------------------------------------------------------------------------
@@ -112,7 +112,7 @@ jobs:
       run: aws sts get-caller-identity
 
     - name: Update Kubeconfig
-      run: aws eks update-kubeconfig --region ap-south-1 --name ${{ secrets.EKS_CLUSTER_NAME }}
+      run: aws eks update-kubeconfig --region ap-south-1 --name ${{ env.EKS_CLUSTER_NAME }}
 
     - name: Deploy Manifests
       env:
