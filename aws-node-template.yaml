@@ -1,0 +1,12 @@
+apiVersion: karpenter.k8s.aws/v1alpha1
+kind: AWSNodeTemplate
+metadata:
+  name: default
+spec:
+  instanceProfile: KarpenterNodeRole
+
+  subnetSelector:
+    kubernetes.io/cluster/shaunak-eks-dev: "*"
+
+  securityGroupSelector:
+    kubernetes.io/cluster/shaunak-eks-dev: "*"

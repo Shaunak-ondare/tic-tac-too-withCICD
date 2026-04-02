@@ -1,0 +1,14 @@
+settings:
+  clusterName: shaunak-eks-dev
+  clusterEndpoint: https://654557044C1A0C289107BC5571383A95.gr7.ap-south-1.eks.amazonaws.com
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::823963318980:role/KarpenterControllerRole
+
+controller:
+  env:
+    - name: CLUSTER_NAME
+      value: shaunak-eks-dev
+    - name: CLUSTER_ENDPOINT
+      value: https://654557044C1A0C289107BC5571383A95.gr7.ap-south-1.eks.amazonaws.com

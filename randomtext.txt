@@ -14,3 +14,59 @@ aws eks update-kubeconfig --region ap-south-1 --name <your-cluster-name>
 
 
 http://a7a1d3cb563f04ff68556337f5101964-1025839413.ap-south-1.elb.amazonaws.com
+
+
+eksctl utils associate-iam-oidc-provider --region ap-south-1 --cluster shaunak-eks-dev --approve
+
+
+#karpenter
+
+
+curl -fsSL https://karpenter.sh/docs/getting-started/getting-started-with-karpenter/cloudformation.yaml > karpenter.yaml
+
+aws cloudformation deploy --stack-name KarpenterStack --template-file karpenter.yaml --capabilities CAPABILITY_NAMED_IAM --parameter-overrides ClusterName=shaunak-eks-dev
+
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/karpenter/v0.37.0/website/content/en/docs/getting-started/getting-started-with-karpenter/cloudformation.yaml
+
+
+
+
+aws eks describe-cluster --name shaunak-eks-dev --query "cluster.endpoint" --output text
+
+https://654557044C1A0C289107BC5571383A95.gr7.ap-south-1.eks.amazonaws.com
+
+helm install karpenter karpenter/karpenter --namespace karpenter --create-namespace --set settings.clusterName=shaunak-eks-dev --set settings.clusterEndpoint=https://654557044C1A0C289107BC5571383A95.gr7.ap-south-1.eks.amazonaws.com --set serviceAccount.annotations."eks.amazonaws.com/role-arn"=arn:aws:iam::823963318980:role/KarpenterControllerRole
+
+
+
+helm install karpenter karpenter/karpenter --namespace karpenter --create-namespace --set settings.clusterName=shaunak-eks-dev --set settings.clusterEndpoint=https://654557044C1A0C289107BC5571383A95.gr7.ap-south-1.eks.amazonaws.com --set serviceAccount.annotations.eks\.amazonaws\.com/role-arn=arn:aws:iam::823963318980:role/KarpenterControllerRole
+
+
+kubectl apply -f - <<EOF
+apiVersion: karpenter.sh/v1beta1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  template:
+    spec:
+      requirements:
+        # Karpenter will only provision EC2 instances that match these requirements
+        - key: "kubernetes.io/arch"
+          operator: In
+          values: ["amd64"]
+        - key: "kubernetes.io/os"
+          operator: In
+          values: ["linux"]
+        - key: "karpenter.sh/capacity-type"
+          operator: In
+          values: ["on-demand", "spot"]
+        - key: "topology.kubernetes.io/zone"
+          operator: In
+          values: ["ap-south-1a", "ap-south-1b", "ap-south-1c"]
+        - key: "node.kubernetes.io/instance-type"
+          operator: In
+          values: ["c7i.flex.large", "m7i.large"]
+      nodeClassRef:
+        name: default
+EOF
