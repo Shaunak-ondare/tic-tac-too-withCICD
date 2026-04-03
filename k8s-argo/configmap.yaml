@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-config
+  namespace: tic-tac-toe
+data:
+  app-config.js: |
+    window.APP_CONFIG = {
+      API_URL: "http://backend:3001"
+    };

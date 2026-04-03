@@ -43,30 +43,3 @@ helm install karpenter karpenter/karpenter --namespace karpenter --create-namesp
 
 
 kubectl apply -f - <<EOF
-apiVersion: karpenter.sh/v1beta1
-kind: NodePool
-metadata:
-  name: default
-spec:
-  template:
-    spec:
-      requirements:
-        # Karpenter will only provision EC2 instances that match these requirements
-        - key: "kubernetes.io/arch"
-          operator: In
-          values: ["amd64"]
-        - key: "kubernetes.io/os"
-          operator: In
-          values: ["linux"]
-        - key: "karpenter.sh/capacity-type"
-          operator: In
-          values: ["on-demand", "spot"]
-        - key: "topology.kubernetes.io/zone"
-          operator: In
-          values: ["ap-south-1a", "ap-south-1b", "ap-south-1c"]
-        - key: "node.kubernetes.io/instance-type"
-          operator: In
-          values: ["c7i.flex.large", "m7i.large"]
-      nodeClassRef:
-        name: default
-EOF
