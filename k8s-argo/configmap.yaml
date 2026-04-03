@@ -6,5 +6,6 @@ metadata:
 data:
   app-config.js: |
     window.APP_CONFIG = {
-      API_URL: "http://backend:3001"
+      API_URL: "http://13.126.8.247:3001"
     };
+    
