@@ -17,10 +17,11 @@ function App() {
   const [isDraw, setIsDraw] = useState(false);
   const [message, setMessage] = useState('');
 
-  const runtimeConfig = useMemo(() => window.__APP_CONFIG__ || {}, []);
+  const runtimeConfig = useMemo(() => window.APP_CONFIG || {}, []);
 
   useEffect(() => {
-    const newSocket = io(URL, { autoConnect: false });
+    const socketUrl = runtimeConfig.API_URL || (import.meta.env.PROD ? '/' : 'http://localhost:3001');
+    const newSocket = io(socketUrl, { autoConnect: false });
     setSocket(newSocket);
 
     newSocket.on('waiting', (data) => {
